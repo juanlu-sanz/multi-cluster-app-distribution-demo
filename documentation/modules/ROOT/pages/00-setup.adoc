@@ -481,8 +481,26 @@ WARNING: Demo platform clusters may use default CIDRs that overlap. If any CIDRs
 
 '''
 
+[#clone-repo]
+=== 9. Clone the workshop repository
+
+*What:* Clone this repository to get the YAML manifests used throughout the demo.
+
+*Why:* Every step applies manifests from local files (e.g. `oc apply -f 00-current-state/...`). You need the repository cloned locally and your shell must be in the repo root.
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+git clone https://github.com/your-org/multi-cluster-app-distribution-demo.git
+cd multi-cluster-app-distribution-demo
+----
+
+TIP: If you have already forked this repository, clone your fork URL instead and use that same URL for `GIT_REPO_URL` in the next step.
+
+'''
+
 [#export-variables]
-=== 9. Export workshop variables
+=== 10. Export workshop variables
 
 *What:* Set the shell variables referenced by YAML files throughout the demo.
 
@@ -495,7 +513,7 @@ export HUB_API_URL="https://api.hub.example.com:6443"
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
 export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
-export REMOTE_INGRESS_IP="<set after Submariner - see step 02>"
+export REMOTE_INGRESS_IP="<set after Submariner - see Step 2, sub-step 6>"
 ----
 
 [cols="2,2,4",options="header"]
@@ -523,7 +541,7 @@ export REMOTE_INGRESS_IP="<set after Submariner - see step 02>"
 | Ingress gateway IP of the peer cluster for cross-cluster mesh routing. With Submariner (Step 2), this can be an internal cluster IP reachable through the tunnel.
 |===
 
-TIP: If you already exported `HUB_API_URL`, `CLUSTER_A_API_URL`, and `CLUSTER_B_API_URL` in step 2, you only need to add `GIT_REPO_URL`. `REMOTE_INGRESS_IP` is determined during the Submariner step.
+TIP: If you already exported `HUB_API_URL`, `CLUSTER_A_API_URL`, and `CLUSTER_B_API_URL` in step 2, you only need to add `GIT_REPO_URL`. Make sure `GIT_REPO_URL` matches the URL you used to clone the repository in step 9. `REMOTE_INGRESS_IP` is determined during xref:03-submariner-connectivity.adoc[Step 2 (Submariner), sub-step 6].
 
 You are now ready to start the demo from xref:01-current-state.adoc[Step 0].
 
@@ -534,7 +552,18 @@ You are now ready to start the demo from xref:01-current-state.adoc[Step 0].
 
 If someone else already provisioned and configured the clusters (e.g. via `setup/post-install.sh`), you only need to log in and set up contexts.
 
-=== 1. Export workshop variables
+=== 1. Clone the workshop repository
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+git clone https://github.com/your-org/multi-cluster-app-distribution-demo.git
+cd multi-cluster-app-distribution-demo
+----
+
+TIP: If you have already forked this repository, clone your fork URL instead and use that same URL for `GIT_REPO_URL` in the next step.
+
+=== 2. Export workshop variables
 
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
@@ -543,10 +572,10 @@ export HUB_API_URL="https://api.hub.example.com:6443"
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
 export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
-export REMOTE_INGRESS_IP="<set after Submariner - see step 02>"
+export REMOTE_INGRESS_IP="<set after Submariner - see Step 2, sub-step 6>"
 ----
 
-=== 2. Log in to each cluster
+=== 3. Log in to each cluster
 
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
@@ -556,7 +585,7 @@ oc login --server=$CLUSTER_A_API_URL
 oc login --server=$CLUSTER_B_API_URL
 ----
 
-=== 3. Rename the contexts
+=== 4. Rename the contexts
 
 The default context names are long and auto-generated. Rename them to `hub`, `cluster-a`, and `cluster-b`:
 
@@ -570,7 +599,7 @@ oc config rename-context <CLUSTER_B_CONTEXT_NAME> cluster-b
 
 TIP: Run `oc config get-contexts` after each login to see the auto-generated context name and use it in the rename command.
 
-=== 4. Verify
+=== 5. Verify
 
 [.console-input]
 [source,bash,subs="+macros,+attributes"]

@@ -287,6 +287,36 @@ The `connected` status and RTT measurement confirm the tunnel is active between 
 
 '''
 
+[#export-remote-ip]
+=== 6. Export the remote ingress IP for Service Mesh
+
+*What:* Capture the ClusterIP of the demo-app service on the remote cluster and export it as `REMOTE_INGRESS_IP`.
+
+*Why:* xref:04-service-mesh.adoc[Step 3 (Service Mesh)] uses this IP in the ServiceEntry to route traffic to the remote cluster. Now that Submariner is active, internal ClusterIPs are reachable across clusters through the IPsec tunnel.
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+export REMOTE_INGRESS_IP=$(oc get svc demo-app -n demo-app --context cluster-b -o jsonpath='{.spec.clusterIP}')
+echo "REMOTE_INGRESS_IP=$REMOTE_INGRESS_IP"
+----
+
+.Verify: variable is set
+[%collapsible]
+====
+[.console-input]
+[source,bash]
+----
+echo $REMOTE_INGRESS_IP
+----
+
+The output should be a valid ClusterIP address (e.g. `172.30.x.x`).
+====
+
+NOTE: If the demo-app is not yet deployed on cluster-b, this export will be empty. You can set it later before Step 3, but the value must be exported before running `envsubst` on the ServiceEntry manifest.
+
+'''
+
 == What This Solves
 
 [cols="2,3",options="header"]
