@@ -774,7 +774,35 @@ Demo platform clusters may use default CIDRs that overlap. If any CIDRs overlap,
 <hr>
 </div>
 <div class="sect2">
-<h3 id="export-variables"><a class="anchor" href="#export-variables"></a>9. Export workshop variables</h3>
+<h3 id="clone-repo"><a class="anchor" href="#clone-repo"></a>9. Clone the workshop repository</h3>
+<div class="paragraph">
+<p><strong>What:</strong> Clone this repository to get the YAML manifests used throughout the demo.</p>
+</div>
+<div class="paragraph">
+<p><strong>Why:</strong> Every step applies manifests from local files (e.g. <code>oc apply -f 00-current-state/&#8230;&#8203;</code>). You need the repository cloned locally and your shell must be in the repo root.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">git clone <a href="https://github.com/your-org/multi-cluster-app-distribution-demo.git" class="bare">https://github.com/your-org/multi-cluster-app-distribution-demo.git</a>
+cd multi-cluster-app-distribution-demo</code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+If you have already forked this repository, clone your fork URL instead and use that same URL for <code>GIT_REPO_URL</code> in the next step.
+</td>
+</tr>
+</table>
+</div>
+<hr>
+</div>
+<div class="sect2">
+<h3 id="export-variables"><a class="anchor" href="#export-variables"></a>10. Export workshop variables</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Set the shell variables referenced by YAML files throughout the demo.</p>
 </div>
@@ -787,7 +815,7 @@ Demo platform clusters may use default CIDRs that overlap. If any CIDRs overlap,
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
 export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
-export REMOTE_INGRESS_IP="&lt;set after Submariner - see step 02&gt;"</code></pre>
+export REMOTE_INGRESS_IP="&lt;set after Submariner - see Step 2, sub-step 6&gt;"</code></pre>
 </div>
 </div>
 <table class="tableblock frame-all grid-all stretch">
@@ -838,7 +866,7 @@ export REMOTE_INGRESS_IP="&lt;set after Submariner - see step 02&gt;"</code></pr
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-If you already exported <code>HUB_API_URL</code>, <code>CLUSTER_A_API_URL</code>, and <code>CLUSTER_B_API_URL</code> in step 2, you only need to add <code>GIT_REPO_URL</code>. <code>REMOTE_INGRESS_IP</code> is determined during the Submariner step.
+If you already exported <code>HUB_API_URL</code>, <code>CLUSTER_A_API_URL</code>, and <code>CLUSTER_B_API_URL</code> in step 2, you only need to add <code>GIT_REPO_URL</code>. Make sure <code>GIT_REPO_URL</code> matches the URL you used to clone the repository in step 9. <code>REMOTE_INGRESS_IP</code> is determined during <a href="03-submariner-connectivity.html" class="xref page">Step 2 (Submariner), sub-step 6</a>.
 </td>
 </tr>
 </table>
@@ -857,19 +885,40 @@ If you already exported <code>HUB_API_URL</code>, <code>CLUSTER_A_API_URL</code>
 <p>If someone else already provisioned and configured the clusters (e.g. via <code>setup/post-install.sh</code>), you only need to log in and set up contexts.</p>
 </div>
 <div class="sect2">
-<h3 id="_1_export_workshop_variables"><a class="anchor" href="#_1_export_workshop_variables"></a>1. Export workshop variables</h3>
+<h3 id="_1_clone_the_workshop_repository"><a class="anchor" href="#_1_clone_the_workshop_repository"></a>1. Clone the workshop repository</h3>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">git clone <a href="https://github.com/your-org/multi-cluster-app-distribution-demo.git" class="bare">https://github.com/your-org/multi-cluster-app-distribution-demo.git</a>
+cd multi-cluster-app-distribution-demo</code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+If you have already forked this repository, clone your fork URL instead and use that same URL for <code>GIT_REPO_URL</code> in the next step.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_2_export_workshop_variables"><a class="anchor" href="#_2_export_workshop_variables"></a>2. Export workshop variables</h3>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export HUB_API_URL="https://api.hub.example.com:6443"
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
 export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
-export REMOTE_INGRESS_IP="&lt;set after Submariner - see step 02&gt;"</code></pre>
+export REMOTE_INGRESS_IP="&lt;set after Submariner - see Step 2, sub-step 6&gt;"</code></pre>
 </div>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_2_log_in_to_each_cluster"><a class="anchor" href="#_2_log_in_to_each_cluster"></a>2. Log in to each cluster</h3>
+<h3 id="_3_log_in_to_each_cluster"><a class="anchor" href="#_3_log_in_to_each_cluster"></a>3. Log in to each cluster</h3>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc login --server=$HUB_API_URL
@@ -879,7 +928,7 @@ oc login --server=$CLUSTER_B_API_URL</code></pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_3_rename_the_contexts"><a class="anchor" href="#_3_rename_the_contexts"></a>3. Rename the contexts</h3>
+<h3 id="_4_rename_the_contexts"><a class="anchor" href="#_4_rename_the_contexts"></a>4. Rename the contexts</h3>
 <div class="paragraph">
 <p>The default context names are long and auto-generated. Rename them to <code>hub</code>, <code>cluster-a</code>, and <code>cluster-b</code>:</p>
 </div>
@@ -904,7 +953,7 @@ Run <code>oc config get-contexts</code> after each login to see the auto-generat
 </div>
 </div>
 <div class="sect2">
-<h3 id="_4_verify"><a class="anchor" href="#_4_verify"></a>4. Verify</h3>
+<h3 id="_5_verify"><a class="anchor" href="#_5_verify"></a>5. Verify</h3>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc config get-contexts</code></pre>
