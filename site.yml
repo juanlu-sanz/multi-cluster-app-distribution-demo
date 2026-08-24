@@ -3,7 +3,7 @@ runtime:
 
 site:
   title: Multi-Cluster Application Distribution
-  url: https://redhat-scholars.github.io/multi-cluster-app-distribution-demo
+  url: https://juanlu-sanz.github.io/multi-cluster-app-distribution-demo
   start_page: multi-cluster-app-distribution::index.adoc
 
 content:

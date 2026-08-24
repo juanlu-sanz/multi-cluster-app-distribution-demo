@@ -4,7 +4,7 @@ This repository contains a Red Hat Scholars courseware tutorial demonstrating se
 
 == View the Course
 
-The full course is published at: https://redhat-scholars.github.io/multi-cluster-app-distribution-demo
+The full course is published at: https://juanlu-sanz.github.io/multi-cluster-app-distribution-demo
 
 == Local Development
 

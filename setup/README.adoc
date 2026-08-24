@@ -2,7 +2,7 @@
 
 This directory contains Terraform configuration and a post-install script to provision the full demo environment from scratch: 2 ARO clusters on Azure (Hub + Cluster B) and 1 ROSA HCP cluster on AWS (Cluster A).
 
-IMPORTANT: This is not part of the demo/workshop. It is internal tooling for Red Hatters to spin up the infrastructure before running the walkthrough published at the link:https://redhat-scholars.github.io/multi-cluster-app-distribution-demo[course site].
+IMPORTANT: This is not part of the demo/workshop. It is internal tooling for Red Hatters to spin up the infrastructure before running the walkthrough published at the link:https://juanlu-sanz.github.io/multi-cluster-app-distribution-demo[course site].
 
 == Architecture
 

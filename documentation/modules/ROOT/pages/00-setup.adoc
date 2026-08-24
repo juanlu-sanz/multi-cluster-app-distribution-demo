@@ -491,7 +491,7 @@ WARNING: Demo platform clusters may use default CIDRs that overlap. If any CIDRs
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-git clone https://github.com/your-org/multi-cluster-app-distribution-demo.git
+git clone https://github.com/juanlu-sanz/multi-cluster-app-distribution-demo.git
 cd multi-cluster-app-distribution-demo
 ----
 
@@ -512,7 +512,7 @@ TIP: If you have already forked this repository, clone your fork URL instead and
 export HUB_API_URL="https://api.hub.example.com:6443"
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
-export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
+export GIT_REPO_URL="https://github.com/juanlu-sanz/multi-cluster-app-distribution-demo.git"
 export REMOTE_INGRESS_IP="<set after Submariner - see Step 2, sub-step 6>"
 ----
 
@@ -557,7 +557,7 @@ If someone else already provisioned and configured the clusters (e.g. via `setup
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-git clone https://github.com/your-org/multi-cluster-app-distribution-demo.git
+git clone https://github.com/juanlu-sanz/multi-cluster-app-distribution-demo.git
 cd multi-cluster-app-distribution-demo
 ----
 
@@ -571,7 +571,7 @@ TIP: If you have already forked this repository, clone your fork URL instead and
 export HUB_API_URL="https://api.hub.example.com:6443"
 export CLUSTER_A_API_URL="https://api.cluster-a.example.com:6443"
 export CLUSTER_B_API_URL="https://api.cluster-b.example.com:6443"
-export GIT_REPO_URL="https://github.com/your-org/multi-cluster-app-distribution-demo.git"
+export GIT_REPO_URL="https://github.com/juanlu-sanz/multi-cluster-app-distribution-demo.git"
 export REMOTE_INGRESS_IP="<set after Submariner - see Step 2, sub-step 6>"
 ----
 
