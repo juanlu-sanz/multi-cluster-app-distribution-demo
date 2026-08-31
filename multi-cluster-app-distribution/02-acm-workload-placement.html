@@ -736,6 +736,63 @@ Removing the taint does not automatically move the application back. The Placeme
 </div>
 <hr>
 </div>
+<div class="sect2">
+<h3 id="restore-placement"><a class="anchor" href="#restore-placement"></a>7. Restore the Placement for subsequent steps</h3>
+<div class="paragraph">
+<p><strong>What:</strong> Reset the Placement selector to target <code>region: west-europe</code> (cluster-a) so the demo continues with a known starting state.</p>
+</div>
+<div class="paragraph">
+<p><strong>Why:</strong> Steps 2 and 3 expect the demo-app to be running on cluster-a. After the bonus step the Placement has a broad <code>environment: production</code> selector and the app may be on either cluster depending on timing. Restoring the original selector guarantees cluster-a is selected.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc patch placement demo-app-placement -n openshift-gitops --context hub --type merge \
+  -p '{"spec":{"predicates":[{"requiredClusterSelector":{"labelSelector":{"matchLabels":{"region":"west-europe"}}}}]}}'</code></pre>
+</div>
+</div>
+<details>
+<summary class="title">Verify: application is running on cluster-a</summary>
+<div class="content">
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get placementdecisions -n openshift-gitops --context hub \
+  -l cluster.open-cluster-management.io/placement=demo-app-placement \
+  -o jsonpath='{range .items[*]}{.status.decisions[*].clusterName}{"\n"}{end}'</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">cluster-a</code></pre>
+</div>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get pods -n demo-app --context cluster-a</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME                        READY   STATUS    RESTARTS   AGE
+demo-app-6d4f5b7c8-x9k2m   1/1     Running   0          30s
+demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s</code></pre>
+</div>
+</div>
+</div>
+</details>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If you skipped the bonus step (step 6), the Placement already targets <code>region: north-europe</code> (cluster-b) from the migration in step 5. In that case this step moves the application back to cluster-a, which is the expected starting state for <a href="03-submariner-connectivity.html" class="xref page">Step 2</a> and <a href="04-service-mesh.html" class="xref page">Step 3</a>.
+</td>
+</tr>
+</table>
+</div>
+<hr>
+</div>
 </div>
 </div>
 <div class="sect1">
