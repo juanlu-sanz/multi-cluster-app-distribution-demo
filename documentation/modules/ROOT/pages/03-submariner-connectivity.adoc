@@ -166,6 +166,19 @@ oc apply -f 02-submariner-connectivity/addon-cluster-a.yaml --context hub
 oc apply -f 02-submariner-connectivity/addon-cluster-b.yaml --context hub
 ----
 
+[#webhook-workaround]
+==== Workaround: Remove the broker-validator webhook
+
+On ACM 2.17.x there is a known issue where the `submariner-addon-broker-validator` webhook incorrectly resolves the cluster identity from the service account name (e.g. it resolves `cluster-a` as `a`), blocking gateway registration in the broker namespace. Delete the webhook after deploying the add-ons:
+
+[.console-input]
+[source,bash]
+----
+oc delete validatingwebhookconfiguration submariner-addon-broker-validator --context hub --ignore-not-found
+----
+
+NOTE: The ACM operator may recreate this webhook during reconciliation. If the gateway connections do not establish after several minutes, check if the webhook has been recreated and delete it again.
+
 .Verify: Submariner add-on installed and connected
 [%collapsible]
 ====
@@ -403,3 +416,5 @@ oc delete namespace production-clusters-broker --context hub --ignore-not-found
 ----
 
 NOTE: After deleting the ManagedClusterAddOns, ACM will uninstall the Submariner operator and all its components (gateway, route agent, Lighthouse) from the managed clusters. The `submariner-operator` namespace on each managed cluster will be removed automatically. This process may take 2-3 minutes.
+
+NOTE: The ACM operator will recreate the `submariner-addon-broker-validator` webhook after reconciliation. When re-running this step, remember to delete it again as described in the <<webhook-workaround>> section.
