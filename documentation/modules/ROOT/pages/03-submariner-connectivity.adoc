@@ -387,7 +387,7 @@ NOTE: If the demo-app is not yet deployed on cluster-b, this export will be empt
 
 == Reset
 
-To undo everything from this step and return to the state before Submariner was deployed, run the following commands. This removes the add-ons (which uninstalls Submariner from both managed clusters), the SubmarinerConfigs, the Broker, the broker namespace, and the cloud credential secrets.
+To undo everything from this step and return to the state before Submariner was deployed, run the following commands. This removes the add-ons (which uninstalls Submariner from both managed clusters), the SubmarinerConfigs, the Broker, and the broker namespace. Cloud credential secrets are intentionally preserved so they can be reused on the next run.
 
 [.console-input]
 [source,bash]
@@ -400,8 +400,6 @@ oc delete submarinerconfig submariner -n cluster-a --context hub --ignore-not-fo
 oc delete submarinerconfig submariner -n cluster-b --context hub --ignore-not-found
 oc delete broker submariner-broker -n production-clusters-broker --context hub --ignore-not-found
 oc delete namespace production-clusters-broker --context hub --ignore-not-found
-oc delete secret cluster-a-cloud-creds -n cluster-a --context hub --ignore-not-found
-oc delete secret cluster-b-cloud-creds -n cluster-b --context hub --ignore-not-found
 ----
 
 NOTE: After deleting the ManagedClusterAddOns, ACM will uninstall the Submariner operator and all its components (gateway, route agent, Lighthouse) from the managed clusters. The `submariner-operator` namespace on each managed cluster will be removed automatically. This process may take 2-3 minutes.
