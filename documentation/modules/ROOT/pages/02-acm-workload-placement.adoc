@@ -175,6 +175,8 @@ acm-placement   1      30s
 
 *Why:* This is the core of the GitOps-based deployment model. The Placement tells ACM which cluster should run the application. The ApplicationSet uses a `clusterDecisionResource` generator that reads from ACM's PlacementDecision - it knows which clusters are selected and generates one Argo CD Application per cluster. Argo CD then syncs the application manifests from the `kustomize/overlays/production` path in Git to the target cluster.
 
+IMPORTANT: The `applicationset.yaml` template uses `${GIT_REPO_URL}` which must be set before running `envsubst`. Verify it is set: `echo $GIT_REPO_URL`. If empty, export it: `export GIT_REPO_URL="https://github.com/<your-org>/multi-cluster-app-distribution-demo.git"`. Without this, the apply will fail with `repoURL: Required value`.
+
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
@@ -405,6 +407,8 @@ oc patch managedcluster cluster-b --context hub --type json \
   -p '[{"op":"add","path":"/spec/taints","value":[{"effect":"NoSelect","key":"demo/maintenance","value":"true"}]}]'
 ----
 
+WARNING: On ACM 2.17.x, this command may return an error: `admission webhook "managedclustermutators..." denied the request: It is not allowed to set TimeAdded of Taint "demo/maintenance"`. Despite the error message, the taint _is_ applied. Verify with `oc get managedcluster cluster-b --context hub -o jsonpath='{.spec.taints}'`. Running the same command a second time will fail because the taint already exists.
+
 The `demo-app-placement` does not tolerate this taint, so ACM evicts cluster-b from the PlacementDecision and selects cluster-a instead. The ApplicationSet detects the change and moves the application.
 
 NOTE: The `all-production-clusters` Placement (used by GitOpsCluster) has `tolerations: [{operator: Exists}]` so it tolerates all taints. This ensures Argo CD always has cluster secrets for every cluster - including tainted ones - so it can clean up resources during failover.
@@ -454,6 +458,8 @@ demo-app-6d4f5b7c8-x9k2m   1/1     Running   0          30s
 demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s
 ----
 ====
+
+NOTE: During the ApplicationSet reconciliation window (up to 180 seconds), you may briefly see _two_ Applications listed (e.g. both `demo-app-cluster-a` and `demo-app-cluster-b`). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
 
 Finally, remove the taint to restore the cluster:
 

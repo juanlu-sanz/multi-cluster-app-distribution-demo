@@ -169,7 +169,7 @@ oc apply -f 02-submariner-connectivity/addon-cluster-b.yaml --context hub
 [#webhook-workaround]
 ==== Workaround: Remove the broker-validator webhook
 
-On ACM 2.17.x there is a known issue where the `submariner-addon-broker-validator` webhook incorrectly resolves the cluster identity from the service account name (e.g. it resolves `cluster-a` as `a`), blocking gateway registration in the broker namespace. Delete the webhook after deploying the add-ons:
+On ACM 2.17.x there is a known issue where the `submariner-addon-broker-validator` webhook incorrectly resolves the cluster identity from the service account name (e.g. it resolves `cluster-a` as `a`). This blocks both gateway endpoint registration in the broker namespace _and_ Lighthouse ServiceImport propagation across clusters (causing `.svc.clusterset.local` DNS resolution to fail). Delete the webhook after deploying the add-ons:
 
 [.console-input]
 [source,bash]
@@ -242,8 +242,98 @@ The output should show `Status: connected` with a valid RTT, confirming the IPse
 
 '''
 
+[#deploy-cluster-b]
+=== 5. Deploy the demo-app to Cluster B
+
+*What:* Deploy the demo-app to Cluster B so both clusters have a running instance of the service.
+
+*Why:* After xref:02-acm-workload-placement.adoc[Step 1], the ApplicationSet deploys the demo-app only to Cluster A. The connectivity test in the next step needs a running service on Cluster B to reach through the Submariner tunnel. Step 3 (Service Mesh) also requires the app on both clusters for cross-cluster traffic routing.
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc apply -f 00-current-state/namespace.yaml --context cluster-b
+oc apply -f 00-current-state/deployment.yaml --context cluster-b
+oc apply -f 00-current-state/service.yaml --context cluster-b
+----
+
+NOTE: We intentionally skip the Route on Cluster B - traffic will be routed through the Submariner tunnel and later through the Service Mesh, not via public ingress.
+
+.Verify: Application running on Cluster B
+[%collapsible]
+====
+[.console-input]
+[source,bash]
+----
+oc get pods -n demo-app --context cluster-b
+----
+
+[.console-output]
+[source,bash]
+----
+NAME                        READY   STATUS    RESTARTS   AGE
+demo-app-6d4f5b7c8-a3b4n   1/1     Running   0          25s
+demo-app-6d4f5b7c8-k7m9p   1/1     Running   0          25s
+----
+====
+
+'''
+
+[#service-export]
+=== 6. Create ServiceExports for cross-cluster DNS
+
+*What:* Create `ServiceExport` resources on both clusters to register the demo-app service with Submariner's Lighthouse DNS.
+
+*Why:* Submariner's Lighthouse DNS resolves `.svc.clusterset.local` domain names, but only for services that have been explicitly exported with a `ServiceExport`. Without this, the connectivity test will fail with "Could not resolve host" even though the tunnel is connected.
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+cat <<'EOF' | oc apply --context cluster-a -f -
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: demo-app
+  namespace: demo-app
+EOF
+
+cat <<'EOF' | oc apply --context cluster-b -f -
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: demo-app
+  namespace: demo-app
+EOF
+----
+
+.Verify: ServiceExport and ServiceImport created
+[%collapsible]
+====
+Wait 30-60 seconds for Lighthouse to propagate the ServiceImport across clusters.
+
+[.console-input]
+[source,bash]
+----
+oc get serviceexport -n demo-app --context cluster-a
+oc get serviceexport -n demo-app --context cluster-b
+----
+
+[.console-input]
+[source,bash]
+----
+oc get serviceimport -n demo-app --context cluster-a
+oc get serviceimport -n demo-app --context cluster-b
+----
+
+Both clusters should show a `ServiceImport` with type `ClusterSetIP`.
+
+NOTE: If the ServiceImport does not appear after 60 seconds, check whether the `submariner-addon-broker-validator` webhook has been recreated (see <<webhook-workaround>>). This webhook also blocks Lighthouse ServiceImport propagation, not just gateway registration.
+====
+
+'''
+
 [#verify-connectivity]
-=== 5. Verify cross-cluster connectivity
+=== 7. Verify cross-cluster connectivity
 
 *What:* Run a connectivity test from a pod on one cluster to a service on the other cluster, proving the Submariner tunnel works.
 
@@ -311,7 +401,7 @@ The `connected` status and RTT measurement confirm the tunnel is active between 
 '''
 
 [#export-remote-ip]
-=== 6. Export the remote ingress IP for Service Mesh
+=== 8. Export the remote ingress IP for Service Mesh
 
 *What:* Capture the ClusterIP of the demo-app service on the remote cluster and export it as `REMOTE_INGRESS_IP`.
 
