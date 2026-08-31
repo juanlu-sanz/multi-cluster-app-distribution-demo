@@ -373,6 +373,28 @@ submariner    10s</code></pre>
 oc apply -f 02-submariner-connectivity/addon-cluster-b.yaml --context hub</code></pre>
 </div>
 </div>
+<div class="sect3">
+<h4 id="webhook-workaround"><a class="anchor" href="#webhook-workaround"></a>Workaround: Remove the broker-validator webhook</h4>
+<div class="paragraph">
+<p>On ACM 2.17.x there is a known issue where the <code>submariner-addon-broker-validator</code> webhook incorrectly resolves the cluster identity from the service account name (e.g. it resolves <code>cluster-a</code> as <code>a</code>), blocking gateway registration in the broker namespace. Delete the webhook after deploying the add-ons:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc delete validatingwebhookconfiguration submariner-addon-broker-validator --context hub --ignore-not-found</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The ACM operator may recreate this webhook during reconciliation. If the gateway connections do not establish after several minutes, check if the webhook has been recreated and delete it again.
+</td>
+</tr>
+</table>
+</div>
 <details>
 <summary class="title">Verify: Submariner add-on installed and connected</summary>
 <div class="content">
@@ -434,6 +456,7 @@ submariner    True        False</code></pre>
 </div>
 </details>
 <hr>
+</div>
 </div>
 <div class="sect2">
 <h3 id="verify-connectivity"><a class="anchor" href="#verify-connectivity"></a>5. Verify cross-cluster connectivity</h3>
@@ -705,6 +728,18 @@ oc delete namespace production-clusters-broker --context hub --ignore-not-found<
 </td>
 <td class="content">
 After deleting the ManagedClusterAddOns, ACM will uninstall the Submariner operator and all its components (gateway, route agent, Lighthouse) from the managed clusters. The <code>submariner-operator</code> namespace on each managed cluster will be removed automatically. This process may take 2-3 minutes.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The ACM operator will recreate the <code>submariner-addon-broker-validator</code> webhook after reconciliation. When re-running this step, remember to delete it again as described in the <a href="#webhook-workaround">Workaround: Remove the broker-validator webhook</a> section.
 </td>
 </tr>
 </table>
