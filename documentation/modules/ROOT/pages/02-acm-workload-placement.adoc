@@ -468,6 +468,56 @@ IMPORTANT: Removing the taint does not automatically move the application back. 
 
 '''
 
+[#restore-placement]
+=== 7. Restore the Placement for subsequent steps
+
+*What:* Reset the Placement selector to target `region: west-europe` (cluster-a) so the demo continues with a known starting state.
+
+*Why:* Steps 2 and 3 expect the demo-app to be running on cluster-a. After the bonus step the Placement has a broad `environment: production` selector and the app may be on either cluster depending on timing. Restoring the original selector guarantees cluster-a is selected.
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc patch placement demo-app-placement -n openshift-gitops --context hub --type merge \
+  -p '{"spec":{"predicates":[{"requiredClusterSelector":{"labelSelector":{"matchLabels":{"region":"west-europe"}}}}]}}'
+----
+
+.Verify: application is running on cluster-a
+[%collapsible]
+====
+[.console-input]
+[source,bash]
+----
+oc get placementdecisions -n openshift-gitops --context hub \
+  -l cluster.open-cluster-management.io/placement=demo-app-placement \
+  -o jsonpath='{range .items[*]}{.status.decisions[*].clusterName}{"\n"}{end}'
+----
+
+[.console-output]
+[source,bash]
+----
+cluster-a
+----
+
+[.console-input]
+[source,bash]
+----
+oc get pods -n demo-app --context cluster-a
+----
+
+[.console-output]
+[source,bash]
+----
+NAME                        READY   STATUS    RESTARTS   AGE
+demo-app-6d4f5b7c8-x9k2m   1/1     Running   0          30s
+demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s
+----
+====
+
+NOTE: If you skipped the bonus step (step 6), the Placement already targets `region: north-europe` (cluster-b) from the migration in step 5. In that case this step moves the application back to cluster-a, which is the expected starting state for xref:03-submariner-connectivity.adoc[Step 2] and xref:04-service-mesh.adoc[Step 3].
+
+'''
+
 == What This Solves (Compared to Step 0)
 
 [cols="2,3",options="header"]
