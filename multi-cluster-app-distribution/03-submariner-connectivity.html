@@ -683,7 +683,7 @@ If the demo-app is not yet deployed on cluster-b, this export will be empty. You
 <h2 id="_reset"><a class="anchor" href="#_reset"></a>Reset</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To undo everything from this step and return to the state before Submariner was deployed, run the following commands. This removes the add-ons (which uninstalls Submariner from both managed clusters), the SubmarinerConfigs, the Broker, the broker namespace, and the cloud credential secrets.</p>
+<p>To undo everything from this step and return to the state before Submariner was deployed, run the following commands. This removes the add-ons (which uninstalls Submariner from both managed clusters), the SubmarinerConfigs, the Broker, and the broker namespace. Cloud credential secrets are intentionally preserved so they can be reused on the next run.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -694,9 +694,7 @@ oc wait --for=delete managedclusteraddon/submariner -n cluster-b --context hub -
 oc delete submarinerconfig submariner -n cluster-a --context hub --ignore-not-found
 oc delete submarinerconfig submariner -n cluster-b --context hub --ignore-not-found
 oc delete broker submariner-broker -n production-clusters-broker --context hub --ignore-not-found
-oc delete namespace production-clusters-broker --context hub --ignore-not-found
-oc delete secret cluster-a-cloud-creds -n cluster-a --context hub --ignore-not-found
-oc delete secret cluster-b-cloud-creds -n cluster-b --context hub --ignore-not-found</code></pre>
+oc delete namespace production-clusters-broker --context hub --ignore-not-found</code></pre>
 </div>
 </div>
 <div class="admonitionblock note">
