@@ -232,6 +232,18 @@ oc apply -f 00-current-state/service.yaml --context cluster-a
 oc apply -f 00-current-state/route.yaml --context cluster-a</code></pre>
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+On ROSA HCP clusters, the Route may occasionally vanish shortly after creation (within seconds). If the Route is missing when you verify, simply re-apply it: <code>oc apply -f 00-current-state/route.yaml --context cluster-a</code>. This is a transient timing issue with ROSA HCP and does not affect ARO clusters.
+</td>
+</tr>
+</table>
+</div>
 <details>
 <summary class="title">Verify: Application running on Cluster A</summary>
 <div class="content">

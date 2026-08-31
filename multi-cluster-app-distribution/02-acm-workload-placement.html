@@ -396,6 +396,18 @@ acm-placement   1      30s</code></pre>
 <div class="paragraph">
 <p><strong>Why:</strong> This is the core of the GitOps-based deployment model. The Placement tells ACM which cluster should run the application. The ApplicationSet uses a <code>clusterDecisionResource</code> generator that reads from ACM&#8217;s PlacementDecision - it knows which clusters are selected and generates one Argo CD Application per cluster. Argo CD then syncs the application manifests from the <code>kustomize/overlays/production</code> path in Git to the target cluster.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+The <code>applicationset.yaml</code> template uses <code>${GIT_REPO_URL}</code> which must be set before running <code>envsubst</code>. Verify it is set: <code>echo $GIT_REPO_URL</code>. If empty, export it: <code>export GIT_REPO_URL="https://github.com/&lt;your-org&gt;/multi-cluster-app-distribution-demo.git"</code>. Without this, the apply will fail with <code>repoURL: Required value</code>.
+</td>
+</tr>
+</table>
+</div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc apply -f 01-acm-workload-placement/placement.yaml --context hub
@@ -656,6 +668,18 @@ To delay automatic eviction (avoiding reaction to brief network disruptions), ad
   -p '[{"op":"add","path":"/spec/taints","value":[{"effect":"NoSelect","key":"demo/maintenance","value":"true"}]}]'</code></pre>
 </div>
 </div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+On ACM 2.17.x, this command may return an error: <code>admission webhook "managedclustermutators&#8230;&#8203;" denied the request: It is not allowed to set TimeAdded of Taint "demo/maintenance"</code>. Despite the error message, the taint <em>is</em> applied. Verify with <code>oc get managedcluster cluster-b --context hub -o jsonpath='{.spec.taints}'</code>. Running the same command a second time will fail because the taint already exists.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>The <code>demo-app-placement</code> does not tolerate this taint, so ACM evicts cluster-b from the PlacementDecision and selects cluster-a instead. The ApplicationSet detects the change and moves the application.</p>
 </div>
@@ -713,6 +737,18 @@ demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s</code></pre>
 </div>
 </div>
 </details>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+During the ApplicationSet reconciliation window (up to 180 seconds), you may briefly see <em>two</em> Applications listed (e.g. both <code>demo-app-cluster-a</code> and <code>demo-app-cluster-b</code>). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>Finally, remove the taint to restore the cluster:</p>
 </div>
