@@ -472,8 +472,18 @@ submariner    True        False</code></pre>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc run submariner-test --image=registry.access.redhat.com/ubi9/ubi-minimal:latest \
-  -n demo-app --context cluster-a --restart=Never --rm -i -- \
-  curl -s --max-time 10 <a href="http://demo-app.demo-app.svc.clusterset.local:9090" class="bare">http://demo-app.demo-app.svc.clusterset.local:9090</a></code></pre>
+  -n demo-app --context cluster-a --restart=Never --rm -i \
+  --overrides='{
+    "spec": {
+      "securityContext": {"runAsNonRoot": true, "seccompProfile": {"type": "RuntimeDefault"}},
+      "containers": [{
+        "name": "submariner-test",
+        "image": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+        "command": ["curl", "-s", "--max-time", "10", "http://demo-app.demo-app.svc.clusterset.local:9090"],
+        "securityContext": {"allowPrivilegeEscalation": false, "capabilities": {"drop": ["ALL"]}}
+      }]
+    }
+  }'</code></pre>
 </div>
 </div>
 <div class="listingblock console-output">
