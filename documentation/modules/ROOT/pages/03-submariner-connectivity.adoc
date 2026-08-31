@@ -255,8 +255,18 @@ Deploy a test pod on Cluster A and try to reach a service on Cluster B:
 [source,bash,subs="+macros,+attributes"]
 ----
 oc run submariner-test --image=registry.access.redhat.com/ubi9/ubi-minimal:latest \
-  -n demo-app --context cluster-a --restart=Never --rm -i -- \
-  curl -s --max-time 10 http://demo-app.demo-app.svc.clusterset.local:9090
+  -n demo-app --context cluster-a --restart=Never --rm -i \
+  --overrides='{
+    "spec": {
+      "securityContext": {"runAsNonRoot": true, "seccompProfile": {"type": "RuntimeDefault"}},
+      "containers": [{
+        "name": "submariner-test",
+        "image": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+        "command": ["curl", "-s", "--max-time", "10", "http://demo-app.demo-app.svc.clusterset.local:9090"],
+        "securityContext": {"allowPrivilegeEscalation": false, "capabilities": {"drop": ["ALL"]}}
+      }]
+    }
+  }'
 ----
 
 [.console-output]
