@@ -436,6 +436,18 @@ demo-app   30s</code></pre>
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get applications.argoproj.io -n openshift-gitops --context hub | grep demo-app</code></pre>
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Use the fully-qualified resource name <code>applications.argoproj.io</code> — the short-form <code>oc get applications</code> may resolve to a different API group and return no results.
+</td>
+</tr>
+</table>
+</div>
 <div class="listingblock console-output">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">demo-app-cluster-a   Synced   Healthy   default   https://github.com/.../multi-cluster-app-distribution-demo.git   kustomize/overlays/production</code></pre>
