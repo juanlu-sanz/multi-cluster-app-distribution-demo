@@ -577,39 +577,26 @@ In the Kiali graph, select the <code>demo-app</code> namespace from the namespac
 oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-b --overwrite</code></pre>
 </div>
 </div>
-<div class="admonitionblock warning">
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
-<div class="paragraph">
-<p><strong>Health probes and ambient mode:</strong> After labeling the namespace, existing pods with HTTP liveness/readiness probes will likely enter <code>CrashLoopBackOff</code>. This happens because the ztunnel intercepts <em>all</em> inbound traffic to the pod — including the kubelet&#8217;s health check connections from the host network. The kubelet&#8217;s HTTP probes time out because they are routed through the ztunnel proxy layer, which adds latency beyond the default 1-second probe timeout.</p>
-</div>
-<div class="paragraph">
-<p><strong>Fix: switch to exec-based probes</strong> that run inside the container, bypassing ztunnel entirely:</p>
-</div>
-<div class="listingblock console-input">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for CTX in cluster-a cluster-b; do
-  oc patch deployment demo-app -n demo-app --context "$CTX" --type=json -p '[
-    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe","value":{
-      "exec":{"command":["wget","--spider","-q","http://localhost:9090/health"]},
-      "initialDelaySeconds":15,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":5}},
-    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{
-      "exec":{"command":["wget","--spider","-q","http://localhost:9090/ready"]},
-      "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":3}}
-  ]'
-done</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Wait for the rollout to complete. The new pods start fresh inside the mesh and the exec probes hit <code>localhost</code> (inside the container&#8217;s network namespace), avoiding the ztunnel interception path entirely.</p>
-</div>
+The deployment manifests in this repository already use <strong>exec-based probes</strong> (<code>wget --spider -q <a href="http://localhost:9090/&#8230;&#8203" class="bare">http://localhost:9090/&#8230;&#8203</a>;</code>) instead of HTTP probes. This is intentional — in ambient mode, the ztunnel intercepts <em>all</em> inbound traffic to the pod, including the kubelet&#8217;s HTTP health check connections from the host network. HTTP probes time out because they are routed through the ztunnel proxy layer. Exec probes run inside the container and hit <code>localhost</code>, bypassing ztunnel entirely. If you are adapting this demo with your own workloads that use HTTP probes, you will need to switch them to exec probes before enrolling the namespace into the mesh — otherwise the pods will enter <code>CrashLoopBackOff</code>.
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>After labeling the namespace, restart the pods so they come up fresh inside the mesh:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc rollout restart deployment demo-app -n demo-app --context cluster-a
+oc rollout restart deployment demo-app -n demo-app --context cluster-b</code></pre>
+</div>
 </div>
 <details>
 <summary class="title">Verify: Namespace enrolled in the mesh</summary>
