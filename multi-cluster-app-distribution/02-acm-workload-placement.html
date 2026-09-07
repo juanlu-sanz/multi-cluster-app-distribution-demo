@@ -699,7 +699,7 @@ The <code>all-production-clusters</code> Placement (used by GitOpsCluster) has <
 <summary class="title">Verify: application fails over to the healthy cluster</summary>
 <div class="content">
 <div class="paragraph">
-<p>Wait up to 3 minutes for the ApplicationSet to reconcile (<code>requeueAfterSeconds: 180</code>), then check:</p>
+<p>Wait up to 30 seconds for the ApplicationSet to reconcile (<code>requeueAfterSeconds: 30</code>), then check:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -744,7 +744,7 @@ demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s</code></pre>
 <i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
-During the ApplicationSet reconciliation window (up to 180 seconds), you may briefly see <em>two</em> Applications listed (e.g. both <code>demo-app-cluster-a</code> and <code>demo-app-cluster-b</code>). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
+During the ApplicationSet reconciliation window (up to 30 seconds), you may briefly see <em>two</em> Applications listed (e.g. both <code>demo-app-cluster-a</code> and <code>demo-app-cluster-b</code>). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
 </td>
 </tr>
 </table>
