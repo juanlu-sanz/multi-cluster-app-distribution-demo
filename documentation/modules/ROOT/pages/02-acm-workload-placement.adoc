@@ -208,6 +208,8 @@ demo-app   30s
 oc get applications.argoproj.io -n openshift-gitops --context hub | grep demo-app
 ----
 
+NOTE: Use the fully-qualified resource name `applications.argoproj.io` — the short-form `oc get applications` may resolve to a different API group and return no results.
+
 [.console-output]
 [source,bash]
 ----
