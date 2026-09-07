@@ -41,14 +41,16 @@ spec:
               cpu: 250m
               memory: 256Mi
           readinessProbe:
-            httpGet:
-              path: /ready
-              port: 9090
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 9090
+            exec:
+              command: ["wget", "--spider", "-q", "http://localhost:9090/ready"]
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["wget", "--spider", "-q", "http://localhost:9090/health"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5

@@ -39,15 +39,19 @@ spec:
             - name: LISTEN_ADDR
               value: "0.0.0.0:9090"
           readinessProbe:
-            initialDelaySeconds: 5
-            httpGet:
-              path: /ready
-              port: 9090
-          livenessProbe:
+            exec:
+              command: ["wget", "--spider", "-q", "http://localhost:9090/ready"]
             initialDelaySeconds: 10
-            httpGet:
-              path: /health
-              port: 9090
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["wget", "--spider", "-q", "http://localhost:9090/health"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
           securityContext:
             capabilities:
               drop:
