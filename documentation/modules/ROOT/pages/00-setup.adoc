@@ -419,11 +419,11 @@ You should see one secret per managed cluster.
 '''
 
 [#install-service-mesh]
-=== 7. Install Service Mesh on managed clusters
+=== 7. Install Service Mesh and Kiali on managed clusters
 
-*What:* Install the OpenShift Service Mesh {mesh-version} operator on Cluster A and Cluster B.
+*What:* Install the OpenShift Service Mesh {mesh-version} and Kiali operators on Cluster A and Cluster B.
 
-*Why:* xref:04-service-mesh.adoc[Step 03] uses Istio ambient mode for traffic management across clusters. The operator must be installed before creating any mesh resources.
+*Why:* xref:04-service-mesh.adoc[Step 03] uses Istio ambient mode for traffic management across clusters. The Kiali operator provides the mesh observability dashboard, enabling you to visualize service topology, traffic flows, and health in real time as you configure the mesh. Both operators must be installed before creating any mesh resources.
 
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
@@ -442,20 +442,33 @@ spec:
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
 EOF
+  cat <<'EOF' | oc apply --context "$CTX" -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kiali-ossm
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: kiali-ossm
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+EOF
 done
 ----
 
-.Verify: Service Mesh CSV is installed on both clusters
+.Verify: Service Mesh and Kiali CSVs installed on both clusters
 [%collapsible]
 ====
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-oc get csv -n openshift-operators --context cluster-a | grep servicemesh
-oc get csv -n openshift-operators --context cluster-b | grep servicemesh
+oc get csv -n openshift-operators --context cluster-a | grep -E "servicemesh|kiali"
+oc get csv -n openshift-operators --context cluster-b | grep -E "servicemesh|kiali"
 ----
 
-Both should show a `servicemeshoperator3` CSV in `Succeeded` phase.
+Both should show a `servicemeshoperator3` and a `kiali-operator` CSV in `Succeeded` phase.
 ====
 
 '''
