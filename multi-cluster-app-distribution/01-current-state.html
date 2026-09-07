@@ -273,6 +273,23 @@ demo-app-6d4f5b7c8-x9k2m   1/1     Running   0          30s</code></pre>
 </div>
 <div class="listingblock console-input">
 <div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The routes use TLS edge termination — always use <code>https://</code>, not <code>http://</code>. If you use <code>http://</code>, you will see the OpenShift default <em>"Application is not available"</em> error page instead of the application response.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock console-input">
+<div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')</code></pre>
 </div>
 </div>

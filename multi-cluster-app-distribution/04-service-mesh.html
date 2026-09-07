@@ -278,6 +278,53 @@ oc get pods -n demo-app --context cluster-b</code></pre>
 </div>
 </div>
 </details>
+<details>
+<summary class="title">Verify: Application accessible in the browser</summary>
+<div class="content">
+<div class="paragraph">
+<p>Retrieve the route URL from each cluster and open it in a browser. Append <code>/ui/</code> to see the fake-service web UI.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Cluster A: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+echo "Cluster B: https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')/ui/"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Open both URLs in a browser. You should see the fake-service UI showing the service name (<code>demo-app</code>), the pod IP address, and request details. You can also verify from the command line:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')
+curl -sk https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "name": "demo-app",
+  "uri": "/",
+  "type": "HTTP",
+  "ip_addresses": ["10.x.x.x"],
+  "body": "Hello from demo-app",
+  "code": 200
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The routes use TLS edge termination — always use <code>https://</code>, not <code>http://</code>. If you use <code>http://</code>, you will see the OpenShift default <em>"Application is not available"</em> error page instead of the application response.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</details>
 <hr>
 </div>
 <div class="sect2">
@@ -361,6 +408,31 @@ If the ztunnel pods show <code>0/1 Ready</code> with errors about <code>/var/run
 </div>
 </div>
 </details>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>istio.yaml</code> manifest includes <code>CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"</code> in the pilot environment variables. This setting tells istiod which service accounts are trusted to request certificates on behalf of workload identities (required for ambient mode). The sail operator may default to <code>kube-system/ztunnel</code>, but when the ztunnel DaemonSet runs in <code>istio-system</code> (as in this demo), that default is incorrect. Without this fix, ztunnel cannot obtain SPIFFE certificates for workload pods, causing all inbound connections (including health probes) to time out with <code>context deadline exceeded</code>.</p>
+</div>
+<div class="paragraph">
+<p>If you see <code>impersonation failed for identity</code> errors in the istiod logs, verify this setting:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get deployment istiod -n istio-system --context cluster-a -o yaml | grep CA_TRUSTED_NODE_ACCOUNTS</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output must include <code>istio-system/ztunnel</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <hr>
 </div>
 <div class="sect2">
@@ -376,6 +448,40 @@ If the ztunnel pods show <code>0/1 Ready</code> with errors about <code>/var/run
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-a --overwrite
 oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-b --overwrite</code></pre>
 </div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><strong>Health probes and ambient mode:</strong> After labeling the namespace, existing pods with HTTP liveness/readiness probes will likely enter <code>CrashLoopBackOff</code>. This happens because the ztunnel intercepts <em>all</em> inbound traffic to the pod — including the kubelet&#8217;s health check connections from the host network. The kubelet&#8217;s HTTP probes time out because they are routed through the ztunnel proxy layer, which adds latency beyond the default 1-second probe timeout.</p>
+</div>
+<div class="paragraph">
+<p><strong>Fix: switch to exec-based probes</strong> that run inside the container, bypassing ztunnel entirely:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for CTX in cluster-a cluster-b; do
+  oc patch deployment demo-app -n demo-app --context "$CTX" --type=json -p '[
+    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe","value":{
+      "exec":{"command":["wget","--spider","-q","http://localhost:9090/health"]},
+      "initialDelaySeconds":15,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":5}},
+    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{
+      "exec":{"command":["wget","--spider","-q","http://localhost:9090/ready"]},
+      "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":3}}
+  ]'
+done</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait for the rollout to complete. The new pods start fresh inside the mesh and the exec probes hit <code>localhost</code> (inside the container&#8217;s network namespace), avoiding the ztunnel interception path entirely.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <details>
 <summary class="title">Verify: Namespace enrolled in the mesh</summary>
@@ -487,6 +593,39 @@ demo-app-routing              ["demo-app.demo-app.global"] 10s</code></pre>
 </div>
 </div>
 </details>
+<details>
+<summary class="title">Verify: Application accessible via route (browser)</summary>
+<div class="content">
+<div class="paragraph">
+<p>Open the cluster-a route in a browser to confirm the application still responds after mesh routing is configured:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can also verify from the command line:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "name": "demo-app",
+  "uri": "/",
+  "type": "HTTP",
+  "ip_addresses": ["10.x.x.x"],
+  "body": "Hello from demo-app",
+  "code": 200
+}</code></pre>
+</div>
+</div>
+</div>
+</details>
 <hr>
 </div>
 <div class="sect2">
@@ -570,6 +709,15 @@ demo-app-dr   demo-app.demo-app.global   10s</code></pre>
 }</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Also verify from the browser by opening both cluster routes. Since all traffic is now routed to cluster-b, the cluster-a route will still respond (via the local mesh-aware service), but the response&#8217;s <code>ip_addresses</code> field may show cluster-b pod IPs when traffic is routed through the mesh:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Cluster A route: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+echo "Cluster B route: https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')/ui/"</code></pre>
+</div>
+</div>
 </div>
 </details>
 <hr>
@@ -610,6 +758,33 @@ demo-app-dr   demo-app.demo-app.global   10s</code></pre>
 </div>
 </div>
 </details>
+<details>
+<summary class="title">Verify: Canary split in the browser</summary>
+<div class="content">
+<div class="paragraph">
+<p>Open the cluster-a route in a browser and refresh several times. Most requests (90%) should show cluster-a pod IPs, and roughly 1 in 10 should show a cluster-b pod IP:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>From the command line, you can run multiple requests to observe the split:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for i in $(seq 1 20); do
+  curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}') \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Request {int(\"$i\"):&gt;2}: IPs={d[\"ip_addresses\"]}')" 2&gt;/dev/null
+done</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You should see approximately 18 out of 20 requests going to cluster-a IPs and 2 going to cluster-b IPs.</p>
+</div>
+</div>
+</details>
 <hr>
 </div>
 <div class="sect2">
@@ -625,6 +800,36 @@ demo-app-dr   demo-app.demo-app.global   10s</code></pre>
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc apply -f 03-service-mesh-traffic-management/peer-authentication.yaml --context cluster-a
 oc apply -f 03-service-mesh-traffic-management/peer-authentication.yaml --context cluster-b</code></pre>
 </div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><strong>STRICT mTLS and OpenShift Routes:</strong> Enforcing <code>STRICT</code> mode means the ztunnel will reject <em>all</em> non-mTLS inbound traffic — including connections from the OpenShift HAProxy router (which runs in the <code>openshift-ingress</code> namespace, outside the mesh). If you have an OpenShift <code>Route</code> pointing to the <code>demo-app</code> service, it will stop working after applying PeerAuthentication with <code>STRICT</code> mode (the route will return <em>"Application is not available"</em>).</p>
+</div>
+<div class="paragraph">
+<p><strong>Workaround options:</strong></p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><strong>Use the route for demo purposes only before applying PeerAuth.</strong> Show the route verification in earlier steps, then apply PeerAuth as the final zero-trust hardening step (accepting that external route access is now blocked in favor of mesh-only communication).</p>
+</li>
+<li>
+<p><strong>Use an Istio ingress gateway</strong> instead of OpenShift Routes — the gateway participates in the mesh and has a valid SPIFFE identity.</p>
+</li>
+<li>
+<p><strong>Use <code>PERMISSIVE</code> mode</strong> instead of <code>STRICT</code> if you need to allow both mTLS and plaintext traffic during a transition period.</p>
+</li>
+</ol>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <details>
 <summary class="title">Verify: mTLS enforced</summary>
