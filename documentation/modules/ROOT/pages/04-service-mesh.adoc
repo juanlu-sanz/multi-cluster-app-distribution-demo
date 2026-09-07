@@ -318,29 +318,16 @@ oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-a 
 oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-b --overwrite
 ----
 
-[WARNING]
-====
-**Health probes and ambient mode:** After labeling the namespace, existing pods with HTTP liveness/readiness probes will likely enter `CrashLoopBackOff`. This happens because the ztunnel intercepts _all_ inbound traffic to the pod — including the kubelet's health check connections from the host network. The kubelet's HTTP probes time out because they are routed through the ztunnel proxy layer, which adds latency beyond the default 1-second probe timeout.
+NOTE: The deployment manifests in this repository already use **exec-based probes** (`wget --spider -q http://localhost:9090/...`) instead of HTTP probes. This is intentional — in ambient mode, the ztunnel intercepts _all_ inbound traffic to the pod, including the kubelet's HTTP health check connections from the host network. HTTP probes time out because they are routed through the ztunnel proxy layer. Exec probes run inside the container and hit `localhost`, bypassing ztunnel entirely. If you are adapting this demo with your own workloads that use HTTP probes, you will need to switch them to exec probes before enrolling the namespace into the mesh — otherwise the pods will enter `CrashLoopBackOff`.
 
-**Fix: switch to exec-based probes** that run inside the container, bypassing ztunnel entirely:
+After labeling the namespace, restart the pods so they come up fresh inside the mesh:
 
 [.console-input]
 [source,bash]
 ----
-for CTX in cluster-a cluster-b; do
-  oc patch deployment demo-app -n demo-app --context "$CTX" --type=json -p '[
-    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe","value":{
-      "exec":{"command":["wget","--spider","-q","http://localhost:9090/health"]},
-      "initialDelaySeconds":15,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":5}},
-    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{
-      "exec":{"command":["wget","--spider","-q","http://localhost:9090/ready"]},
-      "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":3}}
-  ]'
-done
+oc rollout restart deployment demo-app -n demo-app --context cluster-a
+oc rollout restart deployment demo-app -n demo-app --context cluster-b
 ----
-
-Wait for the rollout to complete. The new pods start fresh inside the mesh and the exec probes hit `localhost` (inside the container's network namespace), avoiding the ztunnel interception path entirely.
-====
 
 .Verify: Namespace enrolled in the mesh
 [%collapsible]
