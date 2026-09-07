@@ -253,6 +253,75 @@ EOF
 done
 ----
 
+Enable user-workload-monitoring so that Prometheus scrapes Istio metrics (ztunnel, waypoint, istiod). Without this, Kiali's traffic graph will remain empty:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+for CTX in cluster-a cluster-b; do
+  cat <<'EOF' | oc apply --context "$CTX" -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+EOF
+done
+----
+
+Create PodMonitors and ServiceMonitors so Prometheus discovers the Istio data plane and control plane metrics endpoints:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+# PodMonitor for ztunnel (L4 TCP metrics)
+for CTX in cluster-a cluster-b; do
+  cat <<'EOF' | oc apply --context "$CTX" -f -
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ztunnel
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      app: ztunnel
+  podMetricsEndpoints:
+  - port: ztunnel-stats
+    path: /stats/prometheus
+    interval: 15s
+EOF
+done
+
+# PodMonitor for waypoint proxy (L7 HTTP metrics - created later after waypoint deployment)
+# See Step 5 below
+
+# ServiceMonitor for istiod (control plane metrics)
+for CTX in cluster-a cluster-b; do
+  cat <<'EOF' | oc apply --context "$CTX" -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  endpoints:
+  - port: http-monitoring
+    path: /metrics
+    interval: 15s
+    targetPort: 15014
+EOF
+done
+----
+
+IMPORTANT: The waypoint PodMonitor is created in Step 5 (Deploy waypoint proxy) because the waypoint pod does not exist yet at this point.
+
 Deploy the OpenShift Service Mesh Console (OSSMC) plugin for in-console mesh visibility:
 
 [.console-input]
@@ -302,6 +371,8 @@ echo "Kiali cluster-b: https://$(oc get route kiali -n istio-system --context cl
 Log in using your OpenShift credentials. Navigate to *Graph* to see the service topology. Keep this tab open as you proceed through the remaining steps — the graph will update in real time as you enroll namespaces, deploy waypoints, and shift traffic.
 
 TIP: In the Kiali graph, select the `demo-app` namespace from the namespace dropdown. Enable *Traffic Animation* in the Display menu to see live request flows between services and across clusters.
+
+NOTE: To see traffic in Kiali, you must generate requests *from inside the mesh* (pod-to-service). Traffic from outside the mesh (e.g. `curl` via the OpenShift Route) bypasses ztunnel and is invisible to Kiali. Use: `oc exec -n demo-app deploy/demo-app --context cluster-b -- wget -qO- http://demo-app.demo-app.svc.cluster.local:9090/`
 ====
 
 '''
@@ -361,6 +432,30 @@ istio.io/dataplane-mode=ambient
 ----
 oc apply -f 03-service-mesh-traffic-management/waypoint.yaml --context cluster-a
 oc apply -f 03-service-mesh-traffic-management/waypoint.yaml --context cluster-b
+----
+
+Now create the PodMonitor for the waypoint proxy so Kiali can display L7 HTTP metrics (request rates, error rates, latencies):
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+for CTX in cluster-a cluster-b; do
+  cat <<'EOF' | oc apply --context "$CTX" -f -
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-waypoint
+  namespace: demo-app
+spec:
+  selector:
+    matchLabels:
+      gateway.istio.io/managed: istio.io-mesh-controller
+  podMetricsEndpoints:
+  - port: http-envoy-prom
+    path: /stats/prometheus
+    interval: 15s
+EOF
+done
 ----
 
 .Verify: Waypoint proxy running
@@ -779,6 +874,18 @@ oc delete kiali kiali -n istio-system --context cluster-a --ignore-not-found
 oc delete kiali kiali -n istio-system --context cluster-b --ignore-not-found
 oc delete clusterrolebinding kiali-monitoring-rbac --context cluster-a --ignore-not-found
 oc delete clusterrolebinding kiali-monitoring-rbac --context cluster-b --ignore-not-found
+
+# Remove Prometheus monitors for Istio
+oc delete podmonitor ztunnel -n istio-system --context cluster-a --ignore-not-found
+oc delete podmonitor ztunnel -n istio-system --context cluster-b --ignore-not-found
+oc delete podmonitor istio-waypoint -n demo-app --context cluster-a --ignore-not-found
+oc delete podmonitor istio-waypoint -n demo-app --context cluster-b --ignore-not-found
+oc delete servicemonitor istiod -n istio-system --context cluster-a --ignore-not-found
+oc delete servicemonitor istiod -n istio-system --context cluster-b --ignore-not-found
+
+# Disable user-workload-monitoring (restore default)
+oc delete configmap cluster-monitoring-config -n openshift-monitoring --context cluster-a --ignore-not-found
+oc delete configmap cluster-monitoring-config -n openshift-monitoring --context cluster-b --ignore-not-found
 
 # Remove Istio control plane, ztunnel, and CNI
 oc delete ztunnel default -n istio-system --context cluster-a --ignore-not-found
