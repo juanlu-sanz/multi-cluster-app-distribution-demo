@@ -436,7 +436,135 @@ If the ztunnel pods show <code>0/1 Ready</code> with errors about <code>/var/run
 <hr>
 </div>
 <div class="sect2">
-<h3 id="enroll-namespace"><a class="anchor" href="#enroll-namespace"></a>3. Enroll the application namespace into the mesh</h3>
+<h3 id="deploy-kiali"><a class="anchor" href="#deploy-kiali"></a>3. Deploy Kiali for mesh observability</h3>
+<div class="paragraph">
+<p><strong>What:</strong> Deploy the Kiali server and OpenShift Service Mesh Console (OSSMC) plugin on both clusters.</p>
+</div>
+<div class="paragraph">
+<p><strong>Why:</strong> Kiali provides a real-time visual dashboard for the service mesh - you can see service topology, traffic flows, health status, and Istio configuration. Installing it now means you can watch every subsequent change (namespace enrollment, waypoint deployment, traffic shifting, mTLS enforcement) live in the Kiali graph as you proceed through the remaining steps.</p>
+</div>
+<div class="paragraph">
+<p>Grant Kiali access to cluster monitoring metrics:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for CTX in cluster-a cluster-b; do
+  cat &lt;&lt;'EOF' | oc apply --context "$CTX" -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-monitoring-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+- kind: ServiceAccount
+  name: kiali-service-account
+  namespace: istio-system
+EOF
+done</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Deploy the Kiali server:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for CTX in cluster-a cluster-b; do
+  cat &lt;&lt;'EOF' | oc apply --context "$CTX" -f -
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  version: default
+  istio_namespace: istio-system
+  auth:
+    strategy: openshift
+  deployment:
+    namespace: istio-system
+    accessible_namespaces:
+      - "**"
+  external_services:
+    prometheus:
+      auth:
+        type: bearer
+        use_kiali_token: true
+      thanos_proxy:
+        enabled: true
+      url: <a href="https://thanos-querier.openshift-monitoring.svc.cluster.local:9091" class="bare">https://thanos-querier.openshift-monitoring.svc.cluster.local:9091</a>
+EOF
+done</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Deploy the OpenShift Service Mesh Console (OSSMC) plugin for in-console mesh visibility:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">for CTX in cluster-a cluster-b; do
+  cat &lt;&lt;'EOF' | oc apply --context "$CTX" -f -
+apiVersion: kiali.io/v1alpha1
+kind: OSSMConsole
+metadata:
+  name: ossmconsole
+  namespace: openshift-operators
+spec:
+  version: default
+EOF
+done</code></pre>
+</div>
+</div>
+<details>
+<summary class="title">Verify: Kiali is running and accessible</summary>
+<div class="content">
+<div class="paragraph">
+<p>Wait 60-90 seconds for the Kiali pod to start.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get pods -n istio-system -l app=kiali --context cluster-a
+oc get pods -n istio-system -l app=kiali --context cluster-b</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME                     READY   STATUS    RESTARTS   AGE
+kiali-xxxxxxxxxx-xxxxx   1/1     Running   0          60s</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Get the Kiali dashboard URL and open it in a browser:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">echo "Kiali cluster-a: https://$(oc get route kiali -n istio-system --context cluster-a -o jsonpath='{.spec.host}')"
+echo "Kiali cluster-b: https://$(oc get route kiali -n istio-system --context cluster-b -o jsonpath='{.spec.host}')"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Log in using your OpenShift credentials. Navigate to <strong>Graph</strong> to see the service topology. Keep this tab open as you proceed through the remaining steps — the graph will update in real time as you enroll namespaces, deploy waypoints, and shift traffic.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+In the Kiali graph, select the <code>demo-app</code> namespace from the namespace dropdown. Enable <strong>Traffic Animation</strong> in the Display menu to see live request flows between services and across clusters.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</details>
+<hr>
+</div>
+<div class="sect2">
+<h3 id="enroll-namespace"><a class="anchor" href="#enroll-namespace"></a>4. Enroll the application namespace into the mesh</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Label the <code>demo-app</code> namespace with <code>istio.io/dataplane-mode=ambient</code> on both managed clusters.</p>
 </div>
@@ -501,7 +629,7 @@ done</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="waypoint"><a class="anchor" href="#waypoint"></a>4. Deploy the waypoint proxy for Layer 7 capabilities</h3>
+<h3 id="waypoint"><a class="anchor" href="#waypoint"></a>5. Deploy the waypoint proxy for Layer 7 capabilities</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Deploy a waypoint Gateway resource in the <code>demo-app</code> namespace on both clusters.</p>
 </div>
@@ -533,7 +661,7 @@ demo-app-waypoint   istio   10.96.xxx.xxx   True         30s</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="service-entry"><a class="anchor" href="#service-entry"></a>5. Apply the cross-cluster ServiceEntry</h3>
+<h3 id="service-entry"><a class="anchor" href="#service-entry"></a>6. Apply the cross-cluster ServiceEntry</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Create a ServiceEntry that registers the remote cluster&#8217;s demo-app as a mesh-internal service accessible via <code>demo-app.demo-app.global</code>.</p>
 </div>
@@ -565,7 +693,7 @@ demo-app-cross-cluster  ["demo-app.demo-app.global"]    MESH_INTERNAL DNS       
 <hr>
 </div>
 <div class="sect2">
-<h3 id="virtual-service"><a class="anchor" href="#virtual-service"></a>6. Apply the VirtualService for traffic routing</h3>
+<h3 id="virtual-service"><a class="anchor" href="#virtual-service"></a>7. Apply the VirtualService for traffic routing</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Create a VirtualService that controls how traffic to <code>demo-app.demo-app.global</code> is distributed. Start with 100% to cluster-a.</p>
 </div>
@@ -629,7 +757,7 @@ demo-app-routing              ["demo-app.demo-app.global"] 10s</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="_7_apply_the_destinationrule_for_cluster_specific_subsets"><a class="anchor" href="#_7_apply_the_destinationrule_for_cluster_specific_subsets"></a>7. Apply the DestinationRule for cluster-specific subsets</h3>
+<h3 id="_8_apply_the_destinationrule_for_cluster_specific_subsets"><a class="anchor" href="#_8_apply_the_destinationrule_for_cluster_specific_subsets"></a>8. Apply the DestinationRule for cluster-specific subsets</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Create a DestinationRule that defines named subsets (<code>cluster-a</code>, <code>cluster-b</code>) based on endpoint labels, with mTLS enabled.</p>
 </div>
@@ -660,7 +788,7 @@ demo-app-dr   demo-app.demo-app.global   10s</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="blue-green"><a class="anchor" href="#blue-green"></a>8. Perform a blue-green migration</h3>
+<h3 id="blue-green"><a class="anchor" href="#blue-green"></a>9. Perform a blue-green migration</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Switch 100% of traffic from cluster-a to cluster-b by applying an updated VirtualService.</p>
 </div>
@@ -723,7 +851,7 @@ echo "Cluster B route: https://$(oc get route demo-app -n demo-app --context clu
 <hr>
 </div>
 <div class="sect2">
-<h3 id="canary"><a class="anchor" href="#canary"></a>9. (Optional) Canary traffic shifting</h3>
+<h3 id="canary"><a class="anchor" href="#canary"></a>10. (Optional) Canary traffic shifting</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Instead of an all-at-once switch, apply a VirtualService that sends 90% of traffic to cluster-a and 10% to cluster-b.</p>
 </div>
@@ -788,7 +916,7 @@ done</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="mtls"><a class="anchor" href="#mtls"></a>10. Apply the PeerAuthentication for zero-trust mTLS</h3>
+<h3 id="mtls"><a class="anchor" href="#mtls"></a>11. Apply the PeerAuthentication for zero-trust mTLS</h3>
 <div class="paragraph">
 <p><strong>What:</strong> Enforce STRICT mutual TLS for the <code>demo-app</code> namespace on both clusters, requiring all communication to present a valid mesh identity.</p>
 </div>
@@ -920,6 +1048,9 @@ demo-app-strict    STRICT   10s</code></pre>
 <p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh/3.0/html/about_red_hat_openshift_service_mesh/ossm-about-ambient">Istio Ambient Mode</a></p>
 </li>
 <li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh/3.0/html/observability/kiali-operator-provided-by-red-hat">Kiali Operator (Observability)</a></p>
+</li>
+<li>
 <p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh/3.0/html/traffic_management/ossm-traffic-management">Traffic Management (VirtualService, DestinationRule)</a></p>
 </li>
 <li>
@@ -988,6 +1119,14 @@ oc delete gateway demo-app-waypoint -n demo-app --context cluster-b --ignore-not
 # Remove ambient label from namespace
 oc label namespace demo-app istio.io/dataplane-mode- --context cluster-a
 oc label namespace demo-app istio.io/dataplane-mode- --context cluster-b
+
+# Remove Kiali and OSSMC
+oc delete ossmconsole ossmconsole -n openshift-operators --context cluster-a --ignore-not-found
+oc delete ossmconsole ossmconsole -n openshift-operators --context cluster-b --ignore-not-found
+oc delete kiali kiali -n istio-system --context cluster-a --ignore-not-found
+oc delete kiali kiali -n istio-system --context cluster-b --ignore-not-found
+oc delete clusterrolebinding kiali-monitoring-rbac --context cluster-a --ignore-not-found
+oc delete clusterrolebinding kiali-monitoring-rbac --context cluster-b --ignore-not-found
 
 # Remove Istio control plane, ztunnel, and CNI
 oc delete ztunnel default -n istio-system --context cluster-a --ignore-not-found

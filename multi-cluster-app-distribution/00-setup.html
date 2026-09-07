@@ -700,12 +700,12 @@ EOF</code></pre>
 <hr>
 </div>
 <div class="sect2">
-<h3 id="install-service-mesh"><a class="anchor" href="#install-service-mesh"></a>7. Install Service Mesh on managed clusters</h3>
+<h3 id="install-service-mesh"><a class="anchor" href="#install-service-mesh"></a>7. Install Service Mesh and Kiali on managed clusters</h3>
 <div class="paragraph">
-<p><strong>What:</strong> Install the OpenShift Service Mesh 3.0+ operator on Cluster A and Cluster B.</p>
+<p><strong>What:</strong> Install the OpenShift Service Mesh 3.0+ and Kiali operators on Cluster A and Cluster B.</p>
 </div>
 <div class="paragraph">
-<p><strong>Why:</strong> <a href="04-service-mesh.html" class="xref page">Step 03</a> uses Istio ambient mode for traffic management across clusters. The operator must be installed before creating any mesh resources.</p>
+<p><strong>Why:</strong> <a href="04-service-mesh.html" class="xref page">Step 03</a> uses Istio ambient mode for traffic management across clusters. The Kiali operator provides the mesh observability dashboard, enabling you to visualize service topology, traffic flows, and health in real time as you configure the mesh. Both operators must be installed before creating any mesh resources.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -723,20 +723,33 @@ spec:
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
 EOF
+  cat &lt;&lt;'EOF' | oc apply --context "$CTX" -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kiali-ossm
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: kiali-ossm
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+EOF
 done</code></pre>
 </div>
 </div>
 <details>
-<summary class="title">Verify: Service Mesh CSV is installed on both clusters</summary>
+<summary class="title">Verify: Service Mesh and Kiali CSVs installed on both clusters</summary>
 <div class="content">
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get csv -n openshift-operators --context cluster-a | grep servicemesh
-oc get csv -n openshift-operators --context cluster-b | grep servicemesh</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get csv -n openshift-operators --context cluster-a | grep -E "servicemesh|kiali"
+oc get csv -n openshift-operators --context cluster-b | grep -E "servicemesh|kiali"</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Both should show a <code>servicemeshoperator3</code> CSV in <code>Succeeded</code> phase.</p>
+<p>Both should show a <code>servicemeshoperator3</code> and a <code>kiali-operator</code> CSV in <code>Succeeded</code> phase.</p>
 </div>
 </div>
 </details>
