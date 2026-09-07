@@ -154,6 +154,10 @@ until oc get deployment openshift-gitops-server -n openshift-gitops --context hu
 done
 oc rollout status deployment/openshift-gitops-server -n openshift-gitops --context hub --timeout=300s
 
+echo "    Lowering ArgoCD reconciliation interval to 30s for demo responsiveness..."
+oc patch argocd openshift-gitops -n openshift-gitops --context hub --type merge \
+  -p '{"spec":{"controller":{"appSync":"30s"}}}'
+
 echo "    GitOps is ready."
 
 # -----------------------------------------------------------------------------

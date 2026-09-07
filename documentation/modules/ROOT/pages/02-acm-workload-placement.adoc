@@ -416,7 +416,7 @@ NOTE: The `all-production-clusters` Placement (used by GitOpsCluster) has `toler
 .Verify: application fails over to the healthy cluster
 [%collapsible]
 ====
-Wait up to 3 minutes for the ApplicationSet to reconcile (`requeueAfterSeconds: 180`), then check:
+Wait up to 30 seconds for the ApplicationSet to reconcile (`requeueAfterSeconds: 30`), then check:
 
 [.console-input]
 [source,bash]
@@ -459,7 +459,7 @@ demo-app-6d4f5b7c8-r7t3p   1/1     Running   0          30s
 ----
 ====
 
-NOTE: During the ApplicationSet reconciliation window (up to 180 seconds), you may briefly see _two_ Applications listed (e.g. both `demo-app-cluster-a` and `demo-app-cluster-b`). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
+NOTE: During the ApplicationSet reconciliation window (up to 30 seconds), you may briefly see _two_ Applications listed (e.g. both `demo-app-cluster-a` and `demo-app-cluster-b`). The stale Application is cleaned up automatically on the next reconciliation cycle - do not delete it manually.
 
 Finally, remove the taint to restore the cluster:
 
