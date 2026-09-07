@@ -64,6 +64,14 @@ Open the route URL in a browser and append `/ui/` to see the fake-service web UI
 [.console-input]
 [source,bash]
 ----
+echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+----
+
+NOTE: The routes use TLS edge termination — always use `https://`, not `http://`. If you use `http://`, you will see the OpenShift default _"Application is not available"_ error page instead of the application response.
+
+[.console-input]
+[source,bash]
+----
 curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')
 ----
 

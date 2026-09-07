@@ -2,6 +2,11 @@
 # Purpose: Deploys the Istio control plane in ambient mode on the cluster.
 # Ambient mode uses a per-node ztunnel DaemonSet for Layer 4 traffic interception
 # instead of sidecar proxies in every pod.
+#
+# NOTE: CA_TRUSTED_NODE_ACCOUNTS must list the namespace where the ztunnel
+# DaemonSet runs (istio-system). Without this, istiod rejects certificate
+# requests from the ztunnel and all ambient-enrolled pods will fail health
+# probes because the ztunnel cannot establish mTLS connections on their behalf.
 apiVersion: sailoperator.io/v1
 kind: Istio
 metadata:
@@ -15,6 +20,7 @@ spec:
     pilot:
       env:
         ENABLE_AMBIENT: "true"
+        CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     ztunnel:
       env:
         L4_POLICY_ENABLED: "true"

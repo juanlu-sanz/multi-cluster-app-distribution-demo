@@ -60,6 +60,43 @@ oc get pods -n demo-app --context cluster-b
 Both clusters should show running pods.
 ====
 
+.Verify: Application accessible in the browser
+[%collapsible]
+====
+Retrieve the route URL from each cluster and open it in a browser. Append `/ui/` to see the fake-service web UI.
+
+[.console-input]
+[source,bash]
+----
+echo "Cluster A: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+echo "Cluster B: https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')/ui/"
+----
+
+Open both URLs in a browser. You should see the fake-service UI showing the service name (`demo-app`), the pod IP address, and request details. You can also verify from the command line:
+
+[.console-input]
+[source,bash]
+----
+curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')
+curl -sk https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')
+----
+
+[.console-output]
+[source,json]
+----
+{
+  "name": "demo-app",
+  "uri": "/",
+  "type": "HTTP",
+  "ip_addresses": ["10.x.x.x"],
+  "body": "Hello from demo-app",
+  "code": 200
+}
+----
+
+NOTE: The routes use TLS edge termination — always use `https://`, not `http://`. If you use `http://`, you will see the OpenShift default _"Application is not available"_ error page instead of the application response.
+====
+
 '''
 
 [#install-istio]
@@ -134,6 +171,21 @@ ztunnel   2         2         2       2            2           60s
 NOTE: If the ztunnel pods show `0/1 Ready` with errors about `/var/run/ztunnel/ztunnel.sock` not found, restart them with `oc delete pods -n istio-system -l app=ztunnel --context cluster-a`. This can happen if the ztunnel pods started before the CNI agent was ready.
 ====
 
+[IMPORTANT]
+====
+The `istio.yaml` manifest includes `CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"` in the pilot environment variables. This setting tells istiod which service accounts are trusted to request certificates on behalf of workload identities (required for ambient mode). The sail operator may default to `kube-system/ztunnel`, but when the ztunnel DaemonSet runs in `istio-system` (as in this demo), that default is incorrect. Without this fix, ztunnel cannot obtain SPIFFE certificates for workload pods, causing all inbound connections (including health probes) to time out with `context deadline exceeded`.
+
+If you see `impersonation failed for identity` errors in the istiod logs, verify this setting:
+
+[.console-input]
+[source,bash]
+----
+oc get deployment istiod -n istio-system --context cluster-a -o yaml | grep CA_TRUSTED_NODE_ACCOUNTS
+----
+
+The output must include `istio-system/ztunnel`.
+====
+
 '''
 
 [#enroll-namespace]
@@ -149,6 +201,30 @@ NOTE: If the ztunnel pods show `0/1 Ready` with errors about `/var/run/ztunnel/z
 oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-a --overwrite
 oc label namespace demo-app istio.io/dataplane-mode=ambient --context cluster-b --overwrite
 ----
+
+[WARNING]
+====
+**Health probes and ambient mode:** After labeling the namespace, existing pods with HTTP liveness/readiness probes will likely enter `CrashLoopBackOff`. This happens because the ztunnel intercepts _all_ inbound traffic to the pod — including the kubelet's health check connections from the host network. The kubelet's HTTP probes time out because they are routed through the ztunnel proxy layer, which adds latency beyond the default 1-second probe timeout.
+
+**Fix: switch to exec-based probes** that run inside the container, bypassing ztunnel entirely:
+
+[.console-input]
+[source,bash]
+----
+for CTX in cluster-a cluster-b; do
+  oc patch deployment demo-app -n demo-app --context "$CTX" --type=json -p '[
+    {"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe","value":{
+      "exec":{"command":["wget","--spider","-q","http://localhost:9090/health"]},
+      "initialDelaySeconds":15,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":5}},
+    {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{
+      "exec":{"command":["wget","--spider","-q","http://localhost:9090/ready"]},
+      "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,"failureThreshold":3}}
+  ]'
+done
+----
+
+Wait for the rollout to complete. The new pods start fresh inside the mesh and the exec probes hit `localhost` (inside the container's network namespace), avoiding the ztunnel interception path entirely.
+====
 
 .Verify: Namespace enrolled in the mesh
 [%collapsible]
@@ -264,6 +340,39 @@ demo-app-routing              ["demo-app.demo-app.global"] 10s
 ----
 ====
 
+.Verify: Application accessible via route (browser)
+[%collapsible]
+====
+Open the cluster-a route in a browser to confirm the application still responds after mesh routing is configured:
+
+[.console-input]
+[source,bash]
+----
+echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+----
+
+You can also verify from the command line:
+
+[.console-input]
+[source,bash]
+----
+curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')
+----
+
+[.console-output]
+[source,json]
+----
+{
+  "name": "demo-app",
+  "uri": "/",
+  "type": "HTTP",
+  "ip_addresses": ["10.x.x.x"],
+  "body": "Hello from demo-app",
+  "code": 200
+}
+----
+====
+
 '''
 
 === 7. Apply the DestinationRule for cluster-specific subsets
@@ -349,6 +458,15 @@ curl -s http://demo-app.demo-app.global
   "code": 200
 }
 ----
+
+Also verify from the browser by opening both cluster routes. Since all traffic is now routed to cluster-b, the cluster-a route will still respond (via the local mesh-aware service), but the response's `ip_addresses` field may show cluster-b pod IPs when traffic is routed through the mesh:
+
+[.console-input]
+[source,bash]
+----
+echo "Cluster A route: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+echo "Cluster B route: https://$(oc get route demo-app -n demo-app --context cluster-b -o jsonpath='{.status.ingress[0].host}')/ui/"
+----
 ====
 
 '''
@@ -390,6 +508,31 @@ oc get virtualservice demo-app-routing -n demo-app --context cluster-a -o yaml |
 ----
 ====
 
+.Verify: Canary split in the browser
+[%collapsible]
+====
+Open the cluster-a route in a browser and refresh several times. Most requests (90%) should show cluster-a pod IPs, and roughly 1 in 10 should show a cluster-b pod IP:
+
+[.console-input]
+[source,bash]
+----
+echo "Open: https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}')/ui/"
+----
+
+From the command line, you can run multiple requests to observe the split:
+
+[.console-input]
+[source,bash]
+----
+for i in $(seq 1 20); do
+  curl -sk https://$(oc get route demo-app -n demo-app --context cluster-a -o jsonpath='{.status.ingress[0].host}') \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Request {int(\"$i\"):>2}: IPs={d[\"ip_addresses\"]}')" 2>/dev/null
+done
+----
+
+You should see approximately 18 out of 20 requests going to cluster-a IPs and 2 going to cluster-b IPs.
+====
+
 '''
 
 [#mtls]
@@ -405,6 +548,17 @@ oc get virtualservice demo-app-routing -n demo-app --context cluster-a -o yaml |
 oc apply -f 03-service-mesh-traffic-management/peer-authentication.yaml --context cluster-a
 oc apply -f 03-service-mesh-traffic-management/peer-authentication.yaml --context cluster-b
 ----
+
+[WARNING]
+====
+**STRICT mTLS and OpenShift Routes:** Enforcing `STRICT` mode means the ztunnel will reject _all_ non-mTLS inbound traffic — including connections from the OpenShift HAProxy router (which runs in the `openshift-ingress` namespace, outside the mesh). If you have an OpenShift `Route` pointing to the `demo-app` service, it will stop working after applying PeerAuthentication with `STRICT` mode (the route will return _"Application is not available"_).
+
+**Workaround options:**
+
+1. **Use the route for demo purposes only before applying PeerAuth.** Show the route verification in earlier steps, then apply PeerAuth as the final zero-trust hardening step (accepting that external route access is now blocked in favor of mesh-only communication).
+2. **Use an Istio ingress gateway** instead of OpenShift Routes — the gateway participates in the mesh and has a valid SPIFFE identity.
+3. **Use `PERMISSIVE` mode** instead of `STRICT` if you need to allow both mTLS and plaintext traffic during a transition period.
+====
 
 .Verify: mTLS enforced
 [%collapsible]
