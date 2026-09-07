@@ -240,6 +240,8 @@ spec:
     accessible_namespaces:
       - "**"
   external_services:
+    grafana:
+      enabled: false
     prometheus:
       auth:
         type: bearer
